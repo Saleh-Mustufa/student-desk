@@ -28,6 +28,7 @@ from desk.errors import LOGGER_NAME, ConfigError, log_exception, user_message
 from desk.guardrails import OFF_TOPIC_REFUSAL
 from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
+from desk.ticket import Ticket
 
 BANNER = "Saylani Student Ops Desk — ask about your Saylani bootcamp, or press Ctrl+C to exit."
 PROMPT_LABEL = "--- Resolved system prompt (rebuilt per turn from the profile; printed before any model call) ---"
@@ -76,12 +77,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 async def run_turn(
     agent: Agent[StudentProfile], profile: StudentProfile, history: list, question: str
-) -> str:
+) -> Ticket | str:
     """Run one Desk turn: append the question, run, keep the grown conversation.
 
     ``history`` is replaced with ``result.to_input_list()`` after the run, so it
     always holds the full user/assistant conversation exactly once — the
-    next turn's memory.
+    next turn's memory. With ``output_type=Ticket`` on the Desk (FR-7) the
+    answer is a typed ``Ticket``; the off-topic refusal (FR-8) stays a
+    courteous sentence.
     """
     history.append({"role": "user", "content": question})
     try:

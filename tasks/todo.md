@@ -3,19 +3,19 @@
 > Live checklist; tick as tasks complete. Acceptance criteria and verification steps: `../tasks.md`.
 
 ## Phase 1 — core desk (FR-1…FR-4)
-- [ ] Task 1: Config, secrets validation, central errors (FR-1 partial, NFR-1)
-- [ ] Task 2: `courses.json` + loader (FR-2)
-- [ ] Task 3: `StudentProfile` + course tools that never raise (FR-2, FR-3, NFR-4)
-- [ ] Task 4: Dynamic prompt builder (FR-4)
-- [ ] Task 5: Desk agent + async CLI entry (FR-1)
+- [x] Task 1: Config, secrets validation, central errors (FR-1 partial, NFR-1)
+- [x] Task 2: `courses.json` + loader (FR-2)
+- [x] Task 3: `StudentProfile` + course tools that never raise (FR-2, FR-3, NFR-4)
+- [x] Task 4: Dynamic prompt builder (FR-4)
+- [x] Task 5: Desk agent + async CLI entry (FR-1)
 
 ### Checkpoint 1
-- [ ] `uv run pytest` green · terminal answers from `courses.json` · FR-named commits
+- [x] `uv run pytest` green · terminal answers from `courses.json` · FR-named commits
 
 ## Phase 2 — specialists (FR-5…FR-9)
-- [ ] Task 6: Typed `Ticket` output (FR-7)
-- [ ] Task 7: Input guardrail (FR-8)
-- [ ] Task 8: Specialists via `clone()` + handoffs (FR-5)
+- [x] Task 6: Typed `Ticket` output (FR-7)
+- [x] Task 7: Input guardrail (FR-8)
+- [x] Task 8: Specialists via `clone()` + handoffs (FR-5)
 - [ ] Task 9: Summariser as a tool (FR-6)
 - [ ] Task 10: Tool gating, `close_ticket`, turn ceiling (FR-9)
 

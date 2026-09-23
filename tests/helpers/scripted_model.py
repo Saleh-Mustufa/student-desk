@@ -2,9 +2,11 @@
 
 Subclasses the SDK's abstract ``agents.Model`` with the exact abstract
 signature of openai-agents 0.22.3 (``agents/models/interface.py``). Each queued
-reply becomes a plain-text ``ResponseOutputMessage`` inside a ``ModelResponse``;
-every ``get_response`` call is recorded (system instructions, input items, tool
-list, settings) so tests can assert exactly what the runner sent to the model.
+reply becomes either a plain-text ``ResponseOutputMessage`` or — for tool
+calls and handoff transfers — a ``ResponseFunctionToolCall`` (the exact output
+item type the runner parses in ``agents/run_internal/``); every ``get_response``
+call is recorded (system instructions, input items, tool list, handoff list,
+settings) so tests can assert exactly what the runner sent to the model.
 
 It is injected as the agent-level ``model=`` argument — never via
 ``RunConfig.model`` (constitution: model configuration lives on the agent,
@@ -22,7 +24,11 @@ from agents.handoffs import Handoff
 from agents.items import TResponseInputItem, TResponseStreamEvent
 from agents.model_settings import ModelSettings
 from agents.tool import Tool
-from openai.types.responses import ResponseOutputMessage, ResponseOutputText
+from openai.types.responses import (
+    ResponseFunctionToolCall,
+    ResponseOutputMessage,
+    ResponseOutputText,
+)
 from openai.types.responses.response_prompt_param import ResponsePromptParam
 
 
@@ -38,6 +44,18 @@ def text_message(text: str, message_id: str = "msg-scripted-1") -> ResponseOutpu
 
 
 @dataclass
+class FunctionCallReply:
+    """A queued function-call reply — a tool call or a handoff transfer.
+
+    ``arguments`` is the raw JSON string exactly as the model would emit it;
+    ``{}`` suits the no-input handoff tools and argument-less tools.
+    """
+
+    name: str
+    arguments: str = "{}"
+
+
+@dataclass
 class ScriptedCall:
     """One recorded ``get_response`` invocation."""
 
@@ -45,13 +63,14 @@ class ScriptedCall:
     input: str | list[TResponseInputItem]
     model_settings: ModelSettings
     tools: list[Tool]
+    handoffs: list[Handoff] = field(default_factory=list)
 
 
 @dataclass
 class ScriptedModel(Model):
-    """Replays queued text replies and records every call made through it."""
+    """Replays queued replies (text or function calls) and records every call."""
 
-    replies: list[str] = field(default_factory=list)
+    replies: list[str | FunctionCallReply] = field(default_factory=list)
     calls: list[ScriptedCall] = field(default_factory=list)
 
     async def get_response(
@@ -74,13 +93,25 @@ class ScriptedModel(Model):
                 input=input,
                 model_settings=model_settings,
                 tools=list(tools),
+                handoffs=list(handoffs),
             )
         )
         if not self.replies:
             raise AssertionError("ScriptedModel received more calls than scripted replies")
-        text = self.replies.pop(0)
+        reply = self.replies.pop(0)
+        if isinstance(reply, FunctionCallReply):
+            output: list = [
+                ResponseFunctionToolCall(
+                    name=reply.name,
+                    arguments=reply.arguments,
+                    call_id=f"call-scripted-{len(self.calls)}",
+                    type="function_call",
+                )
+            ]
+        else:
+            output = [text_message(reply)]
         return ModelResponse(
-            output=[text_message(text)],
+            output=output,
             usage=Usage(),
             response_id=f"resp-scripted-{len(self.calls)}",
         )

@@ -6,6 +6,7 @@ tripwire fires BEFORE the Desk's model is ever called. No test touches the
 network or the project's real ``.env``.
 """
 
+import json
 import sys
 from pathlib import Path
 
@@ -189,13 +190,25 @@ async def test_tripwire_fires_before_the_desk_model_runs():
 
 
 async def test_on_topic_question_still_reaches_the_model_exactly_once():
-    model = ScriptedModel(replies=["Assignment A3 is due on 2026-09-18."])
+    model = ScriptedModel(
+        replies=[json.dumps({
+            "category": "assignment",
+            "summary": "A3 is due on 2026-10-02.",
+            "next_step": "Submit A3 on the portal before 2026-10-02.",
+            "resolved": True,
+            "escalate": False,
+        })]
+    )
     agent = build_desk_agent(model)
     profile = make_profile()
 
     result = await Runner.run(agent, "When is my A3 due?", context=profile, max_turns=10)
 
-    assert result.final_output == "Assignment A3 is due on 2026-09-18."
+    # On-topic input passes the guardrail and the typed ticket comes back (FR-7).
+    from desk.ticket import Ticket
+
+    assert isinstance(result.final_output, Ticket)
+    assert result.final_output.category == "assignment"
     assert len(model.calls) == 1
 
 

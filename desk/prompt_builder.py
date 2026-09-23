@@ -26,6 +26,16 @@ from desk.profile import StudentProfile
 
 AGENT_NAME = "Student Ops Desk"
 
+# FR-5 routing constants — the single source of truth for the specialist
+# identities and the handoff tool names. ``desk.agents`` names its clones
+# exactly these names, so the SDK derives the handoff tools
+# ``transfer_to_<name>``; the wiring test pins generated names == constants.
+# The scope routing below references the constants — never duplicated strings.
+ASSIGNMENTS_SPECIALIST_NAME = "Assignments Specialist"
+CAREERS_SPECIALIST_NAME = "Careers Specialist"
+ASSIGNMENTS_HANDOFF_TOOL = "transfer_to_assignments_specialist"
+CAREERS_HANDOFF_TOOL = "transfer_to_careers_specialist"
+
 # Tone directives — deliberately different wording per branch (tests assert on
 # the distinctive phrases): warm and helpful by default, terse once the
 # student has three or more open tickets.
@@ -71,6 +81,14 @@ def _compose(profile: StudentProfile, course_title: str | None, agent_name: str)
         "decline anything else.\n"
         "- Ground every course fact in the course catalogue tools; never "
         "invent schedules, deadlines, or policies.\n"
+        "- Assignment questions (deadlines, requirements, late policy): "
+        f"transfer the conversation to the assignments specialist by "
+        f"calling {ASSIGNMENTS_HANDOFF_TOOL}.\n"
+        "- Career questions (career paths, roadmap after the bootcamp, "
+        f"placement): transfer the conversation to the careers specialist "
+        f"by calling {CAREERS_HANDOFF_TOOL}.\n"
+        "- Administrative questions (schedules, enrolment, general "
+        "policies): answer yourself from the catalogue tools.\n"
         "- Once the student's question is resolved, end the conversation by "
         "calling close_ticket with the structured ticket."
     )
