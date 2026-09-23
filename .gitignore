@@ -22,3 +22,6 @@ Thumbs.db
 # Runtime audit artifacts (durable on disk, not in history)
 audit/
 logs/
+
+# SDD scratch workspace
+.superpowers/
