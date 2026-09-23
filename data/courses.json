@@ -1,0 +1,53 @@
+{
+  "courses": [
+    {
+      "id": "agentic-ai-w4",
+      "title": "Agentic AI — Weekday Batch 4",
+      "schedule": "Mon–Thu, 7–9pm",
+      "policies": {
+        "late_submission": "48 hours, 20% penalty",
+        "plagiarism": "First offence: zero on the assignment and a formal warning; second offence: course failed.",
+        "resubmission": "One resubmission within 7 days of feedback; final grade capped at pass."
+      },
+      "scholarship_benefits": [
+        "Full tuition waiver for the duration of the bootcamp",
+        "Priority mentor support and weekly code reviews",
+        "Certification exam fee covered by Saylani"
+      ],
+      "career_paths": [
+        "AI agent developer",
+        "LLM application engineer",
+        "Python automation engineer"
+      ],
+      "assignments": [
+        { "id": "a1", "title": "Python and prompt foundations", "due": "2026-09-18" },
+        { "id": "a2", "title": "Tool-calling agent with function tools", "due": "2026-09-25" },
+        { "id": "a3", "title": "First coded agent", "due": "2026-10-02" }
+      ]
+    },
+    {
+      "id": "data-analytics-w2",
+      "title": "Data Analytics — Weekend Batch 2",
+      "schedule": "Sat–Sun, 10am–1pm",
+      "policies": {
+        "late_submission": "24 hours, 15% penalty",
+        "plagiarism": "First offence: zero on the task and a written warning; repeated plagiarism is escalated to the programme lead.",
+        "resubmission": "One resubmission within 5 days of feedback; score capped at 70%."
+      },
+      "scholarship_benefits": [
+        "Fifty percent tuition waiver",
+        "Weekend laptop-lab access at the campus",
+        "Referral to the Saylani placement cell"
+      ],
+      "career_paths": [
+        "Data analyst",
+        "Reporting and BI associate",
+        "MIS executive"
+      ],
+      "assignments": [
+        { "id": "a1", "title": "SQL and spreadsheet fundamentals", "due": "2026-09-20" },
+        { "id": "a2", "title": "Dashboard story in Power BI", "due": "2026-10-04" }
+      ]
+    }
+  ]
+}
