@@ -18,7 +18,12 @@ from pathlib import Path
 import pytest
 from agents import Runner, set_tracing_disabled
 
-from desk.agents import build_base_specialist, build_desk_agent, build_specialists
+from desk.agents import (
+    build_base_specialist,
+    build_desk_agent,
+    build_specialists,
+    build_summariser,
+)
 from desk.cli import PROMPT_LABEL, main, parse_args, run_turn
 from desk.errors import LOGGER_NAME
 from desk.model_config import FailoverModel, resolve_catalog
@@ -86,7 +91,12 @@ def test_build_desk_agent_carries_injected_model_and_exact_wiring():
     assert agent.name == "Student Ops Desk"
     # Dynamic instructions: the two-parameter callable, never a static string.
     assert callable(agent.instructions)
-    assert agent.tools == [list_courses, get_course_details]
+    # FR-6: the summariser rides along as a tool, not a handoff.
+    assert [tool.name for tool in agent.tools] == [
+        "list_courses",
+        "get_course_details",
+        "summarise_answer",
+    ]
     assert agent.model_settings.temperature == 0.2
     assert agent.model_settings.max_tokens == 1000
     # FR-5: handoffs wired to the two cloned specialists…
@@ -271,6 +281,71 @@ async def test_admin_question_is_answered_by_the_desk_itself_without_handoff():
     assert len(model.calls) == 1
 
 
+# --- FR-6: the Summariser is a tool, not a handoff — the Desk keeps talking ---
+
+
+def test_summariser_is_wired_as_a_tool_not_a_handoff():
+    model = ScriptedModel(replies=[])
+    agent = build_desk_agent(model)
+
+    # A tool on the Desk, never a handoff: summarisation is a sub-task the
+    # Desk borrows mid-answer; a handoff would move the conversation away.
+    assert "summarise_answer" in [tool.name for tool in agent.tools]
+    assert [a.name for a in agent.handoffs] == [
+        ASSIGNMENTS_SPECIALIST_NAME,
+        CAREERS_SPECIALIST_NAME,
+    ]
+
+    summariser = build_summariser(model)
+    # Deliberate settings (plan.md §2): a tiny ceiling — summarisation is
+    # cheap or it is pointless — and no tools of its own.
+    assert summariser.model_settings.temperature == 0.1
+    assert summariser.model_settings.max_tokens == 200
+    assert summariser.tools == []
+
+
+async def test_summarise_answer_fires_as_a_tool_and_the_desk_answers_last():
+    long_answer = (
+        "Late submissions are accepted up to 48 hours after the deadline with "
+        "a 20% penalty. Submissions after that window are not accepted. One "
+        "resubmission is allowed within 7 days of feedback and the final "
+        "grade is capped at a pass."
+    )
+    condensed = "Late window: 48 hours, 20% penalty."
+    model = ScriptedModel(
+        replies=[
+            FunctionCallReply(
+                name="summarise_answer",
+                arguments=json.dumps({"input": long_answer}),
+            ),
+            condensed,
+            json.dumps(ADMIN_TICKET),
+        ]
+    )
+    agent = build_desk_agent(model)
+    profile = make_profile()
+
+    result = await Runner.run(
+        agent, "Summarise the late policy for me", context=profile, max_turns=10
+    )
+
+    # FR-6 core: the final message still comes from the Desk — the tool was
+    # borrowed mid-answer, the conversation was never transferred.
+    assert result.last_agent.name == "Student Ops Desk"
+    assert type(result.final_output) is Ticket
+    # The summariser tool call appears in the run's items, with its output.
+    item_types = [type(item).__name__ for item in result.new_items]
+    assert "ToolCallItem" in item_types
+    assert "ToolCallOutputItem" in item_types
+    # Three model calls: Desk, then the Summariser tool, then the Desk closes.
+    assert len(model.calls) == 3
+    # The Summariser ran as its own agent with its own deliberate settings.
+    summariser_call = model.calls[1]
+    assert "Summariser" in summariser_call.system_instructions
+    assert summariser_call.model_settings.temperature == 0.1
+    assert summariser_call.model_settings.max_tokens == 200
+
+
 # --- FR-1/FR-7: run_turn — scripted end-to-end turn through the SDK runner ----
 
 
@@ -324,10 +399,11 @@ async def test_run_passes_dynamic_system_prompt_tools_and_handoffs_to_model():
     assert call.system_instructions.startswith(
         "You are the Student Ops Desk assistant, currently helping Ayesha."
     )
-    # …exactly the two catalogue tools are offered as function tools…
+    # …exactly the two catalogue tools plus the summariser tool are offered…
     assert [tool.name for tool in call.tools] == [
         "list_courses",
         "get_course_details",
+        "summarise_answer",
     ]
     # …and the two handoff transfer tools are offered separately.
     assert [handoff.tool_name for handoff in call.handoffs] == [

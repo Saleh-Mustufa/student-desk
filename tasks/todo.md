@@ -16,7 +16,7 @@
 - [x] Task 6: Typed `Ticket` output (FR-7)
 - [x] Task 7: Input guardrail (FR-8)
 - [x] Task 8: Specialists via `clone()` + handoffs (FR-5)
-- [ ] Task 9: Summariser as a tool (FR-6)
+- [x] Task 9: Summariser as a tool (FR-6)
 - [ ] Task 10: Tool gating, `close_ticket`, turn ceiling (FR-9)
 
 ### Checkpoint 2

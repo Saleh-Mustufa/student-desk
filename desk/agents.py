@@ -16,14 +16,17 @@ whichever specialist fits via ``handoffs``, and carries the shared typed
 output (``output_type=Ticket``, FR-7), which the clones inherit.
 
 The FR-8 off-topic input guardrail (zero model calls) is wired below from
-:mod:`desk.guardrails` with ``run_in_parallel=False``. Deliberately NOT built
-here (later tasks add them; nothing is pre-built): the Summariser tool (FR-6),
-``close_ticket``/tool gating (FR-9), hooks (FR-10).
+:mod:`desk.guardrails` with ``run_in_parallel=False``. FR-6 lives here too:
+the Summariser is exposed to the Desk **as a tool** (``Agent.as_tool``), not a
+handoff — summarisation is a sub-task the Desk borrows mid-answer and then
+speaks in its own voice, where assignment/career questions are jobs that pass
+to an owner. Deliberately NOT built here (later tasks add them; nothing is
+pre-built): ``close_ticket``/tool gating (FR-9), hooks (FR-10).
 """
 
 from __future__ import annotations
 
-from agents import Agent, ModelSettings
+from agents import Agent, FunctionTool, ModelSettings, RunContextWrapper
 
 from desk.config import build_model, load_config
 from desk.guardrails import off_topic_guardrail
@@ -80,6 +83,62 @@ CAREERS_INSTRUCTIONS = (
 # The reference tool list the base template is built with; each clone passes
 # its own fresh list (the shallow-copy trap), chosen per specialism.
 BASE_SPECIALIST_TOOLS = [list_courses, get_course_details, get_assignment]
+
+# FR-6: a tiny ceiling on purpose — summarisation is cheap or it is pointless.
+SUMMARISER_MODEL_SETTINGS = ModelSettings(temperature=0.1, max_tokens=200)
+SUMMARISER_INSTRUCTIONS = (
+    "You are the Summariser at the Saylani Student Ops Desk. Compress the "
+    "input answer to at most three lines, keep every fact, and output no "
+    "preamble or commentary."
+)
+# NFR-4: the summariser tool never raises into the runner — any failure
+# becomes a sentence the Desk can act on in its own voice.
+SUMMARISATION_FAILURE_SENTENCE = (
+    "Summarisation failed. Give the student the key facts from the original "
+    "answer yourself."
+)
+
+
+def _summarisation_failure(ctx: RunContextWrapper, error: Exception) -> str:
+    """Tool error function: failure becomes a model-actionable sentence."""
+    return SUMMARISATION_FAILURE_SENTENCE
+
+
+def build_summariser(model=None) -> Agent:
+    """Build the Summariser agent — static instructions, no tools, no handoffs.
+
+    ``model`` defaults to the Gemini-backed failover model; tests inject a
+    scripted model so the whole desk (Desk, specialists, summariser) can run
+    on one shared scripted instance.
+    """
+    if model is None:
+        model = build_model(load_config())
+
+    return Agent(
+        name="Summariser",
+        instructions=SUMMARISER_INSTRUCTIONS,
+        model=model,
+        model_settings=SUMMARISER_MODEL_SETTINGS,
+    )
+
+
+def build_summarise_answer_tool(model=None) -> FunctionTool:
+    """Expose the Summariser to the Desk as the ``summarise_answer`` tool (FR-6).
+
+    Deliberately a tool, not a handoff (FR-6): a handoff would transfer the
+    conversation away from the Desk, but summarisation is a sub-task the Desk
+    borrows and then weaves into its own reply. ``max_turns=2`` bounds the
+    internal run; ``failure_error_function`` keeps it raise-free (NFR-4).
+    """
+    return build_summariser(model).as_tool(
+        tool_name="summarise_answer",
+        tool_description=(
+            "Condense a long policy answer to at most three lines, keeping "
+            "every fact. Pass the full answer as `input`."
+        ),
+        failure_error_function=_summarisation_failure,
+        max_turns=2,
+    )
 
 
 def build_base_specialist(model=None) -> Agent[StudentProfile]:
@@ -145,8 +204,9 @@ def build_desk_agent(model=None) -> Agent[StudentProfile]:
         # Dynamic instructions: the SDK calls build_system_prompt(wrapper, agent)
         # before every run, so the prompt is rebuilt from the profile per turn.
         instructions=build_system_prompt,
-        # Admin questions (schedules, policies) the Desk answers itself.
-        tools=[list_courses, get_course_details],
+        # Admin questions (schedules, policies) the Desk answers itself;
+        # FR-6: the Summariser rides along as a tool for long policy answers.
+        tools=[list_courses, get_course_details, build_summarise_answer_tool(model)],
         # FR-5: assignment/career questions transfer to the cloned specialists.
         handoffs=[assignments, careers],
         # FR-8: zero-model-call off-topic tripwire, runs before the model

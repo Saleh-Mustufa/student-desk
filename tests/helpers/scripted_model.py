@@ -66,12 +66,19 @@ class ScriptedCall:
     handoffs: list[Handoff] = field(default_factory=list)
 
 
-@dataclass
 class ScriptedModel(Model):
-    """Replays queued replies (text or function calls) and records every call."""
+    """Replays queued replies (text or function calls) and records every call.
 
-    replies: list[str | FunctionCallReply] = field(default_factory=list)
-    calls: list[ScriptedCall] = field(default_factory=list)
+    Deliberately a plain class, NOT a dataclass: the SDK serialises agent
+    graphs with ``dataclasses.asdict`` (run-state identity signatures), and
+    an agent-as-tool's ``FunctionTool._agent_instance`` points back at the
+    agent that holds this model — a dataclass model that also recorded those
+    tools would close a reference cycle and blow the recursion limit.
+    """
+
+    def __init__(self, replies: list[str | FunctionCallReply] | None = None) -> None:
+        self.replies: list[str | FunctionCallReply] = list(replies or [])
+        self.calls: list[ScriptedCall] = []
 
     async def get_response(
         self,
