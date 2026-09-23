@@ -18,3 +18,7 @@ __pycache__/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Runtime audit artifacts (durable on disk, not in history)
+audit/
+logs/
