@@ -27,6 +27,22 @@ TURN_CEILING_MESSAGE = (
     "one — if it keeps happening, the team will pick it up from here."
 )
 
+# FR-12 failure cards: every failure mode maps to one friendly sentence —
+# the full traceback goes to the server-side logger only.
+TICKET_PARSE_FAILURE_MESSAGE = (
+    "I worked out an answer but couldn't file the structured ticket for it. "
+    "Please try asking again in a slightly different way — nothing was lost."
+)
+MODEL_FAILURE_MESSAGE = (
+    "The desk's AI service is unavailable right now — it may be rate-limited "
+    "or briefly down. Please try again in a moment."
+)
+SETUP_FAILURE_INTRO = (
+    "The desk isn't set up correctly yet, so it can't answer anything right "
+    "now. Please ask the team to check the configuration "
+    "(the OPENAI_API_KEY entry in .env)."
+)
+
 
 def log_exception(exc: BaseException) -> None:
     """Record the full traceback on the server-side logger.
