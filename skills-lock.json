@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "dispatching-parallel-agents": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/dispatching-parallel-agents/SKILL.md",
+      "computedHash": "b011107f17188e0b2898bb1856b5bac8b49537cc86e737c82126558a235bd62a"
+    },
+    "frontend-ui-engineering": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-ui-engineering/SKILL.md",
+      "computedHash": "caada020b47fb51c68ba91f9bf390745e18f9d6c17e4c251b046ba74e43343d7"
+    },
+    "openai-docs": {
+      "source": "openai/skills",
+      "sourceType": "github",
+      "skillPath": "skills/.curated/openai-docs/SKILL.md",
+      "computedHash": "80d1836b9c7cdee24521c47e33a77cbf02b34783267f5a7e32c41557170fa6dd"
+    },
+    "planning-and-task-breakdown": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/planning-and-task-breakdown/SKILL.md",
+      "computedHash": "0dc14a1402cdabd376f2d81d2225fcb4a18ee63d58b945ff83affeb024285b8f"
+    },
+    "spec-driven-development": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/spec-driven-development/SKILL.md",
+      "computedHash": "d4dc15caa8d97749267da68676aeadff3fb5b8d9a4462664937137ac09610e4f"
+    },
+    "subagent-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/subagent-driven-development/SKILL.md",
+      "computedHash": "aacfc60b54e36c583bcc0746ba0d92cb8eb648728e4882e1d67b913ba7218536"
+    },
+    "test-driven-development": {
+      "source": "obra/superpowers",
+      "sourceType": "github",
+      "skillPath": "skills/test-driven-development/SKILL.md",
+      "computedHash": "3cfe4ebb6fa7288f668d87880d279c8e48f7a92b63415e296857060f5ce22e05"
+    }
+  }
+}
