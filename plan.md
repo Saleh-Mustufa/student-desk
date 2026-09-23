@@ -50,6 +50,24 @@ The handoff tools' names are derived from agent names (`transfer_to_assignments_
 Renaming a specialist silently breaks routing (fundamentals ch. 12 note) — the wiring test pins the
 names.
 
+## 2.1 Model selection and failover — `desk/model_config.py` (added 2026-09-23, user-approved deviation)
+
+The provider retired `gemini-2.5-flash` for this key, and free-tier quota limits make any single
+model a single point of failure. One module owns model selection:
+
+- **`MODEL_CATALOG`** (ordered): `gemini-3.6-flash` (head — user's priority; currently daily-limited,
+  the failover skips it automatically until its cooldown expires), `gemini-3.5-flash-lite`,
+  `gemini-3.1-flash-lite` (15 RPM), `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.5-flash`,
+  `gemini-3-flash` (5 RPM). **Gemma-family models are excluded**: they cannot call tools, and the
+  Desk is tool-required (FR-2). Exact ids verified against the key's `ListModels` roster.
+- **`FailoverModel`** implements the SDK `Model` interface and wraps an
+  `OpenAIChatCompletionsModel` per catalog entry. On **429** the entry cools down (60 s; ~24 h when
+  the error text reports a per-day quota), on **503** briefly, on **404** for the rest of the session;
+  the call is retried on the next healthy entry. The wrapper is the object every agent receives as
+  `model=` — FR-1's agent-level rule is intact, agents never change for failover.
+- **`MODEL_PRIORITY`** env var (comma-separated model ids) reorders the catalog head; default order
+  as above. `build_model()` in `desk/config.py` delegates here.
+
 ## 3. Tools (name · signature · return shape)
 
 All tools are `@function_tool`, `async`, and take `RunContextWrapper[StudentProfile]` as their first
@@ -117,9 +135,11 @@ ticket, with headroom; caught as `MaxTurnsExceeded` and reported — never a loo
 
 ## 8. Open Questions (user input requested, build unblocked meanwhile)
 
-1. **Model name (flagged):** brief says `gemini-2.5-flash`; the provided key's account gets a provider
-   404 for it (exact error captured in `docs/SPEC.md` → assumption 2). Provisional decision:
-   `GEMINI_MODEL=gemini-3.6-flash` in `.env`, code default remains `gemini-2.5-flash`. One-line revert.
+1. **Model name — RESOLVED by user decision (2026-09-23):** the brief's `gemini-2.5-flash` is
+   retired for this key (provider 404). Model selection is delegated to `desk/model_config.py`
+   (section 2.1): priority-ordered catalog with automatic failover on 429/503/404; `MODEL_PRIORITY`
+   env override; Gemma excluded (no tool support). The brief's name survives nowhere in code — the
+   provider no longer serves it.
 2. **Trace export:** no OpenAI platform key → local durable JSONL traces (section 5). If you provide a
    platform key, built-in export can run *in addition* with one line.
 3. **Stretch items** (only if everything else is green): typed handoff input, SQLite ticket store,

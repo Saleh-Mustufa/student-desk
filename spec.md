@@ -14,7 +14,9 @@ and every run can be audited after the fact.
 **FR-1 — Gemini at the agent.** A question typed in the terminal is answered by Gemini through its
 OpenAI-compatible endpoint. The model (client + model name) is declared on each `Agent` — never
 process-global, never per-run, and the forbidden global call (`set_default_openai_client`) appears
-nowhere. The entry point is an `async def` driven by `asyncio.run`.
+nowhere. The entry point is an `async def` driven by `asyncio.run`. (User-approved amendment,
+2026-09-23: which Gemini model name is active is decided by `desk/model_config.py`'s priority
+catalog with automatic failover — the agent-level configuration rule itself is unchanged.)
 
 **FR-2 — Course knowledge lives in a file, reached only through tools.** All course facts — catalogue,
 schedules, policies, assignments — live in `courses.json`. The only way any agent can see a fact is by

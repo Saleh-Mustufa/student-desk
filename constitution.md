@@ -12,10 +12,15 @@ then a code change — never the other way round.
   - Never configure the model at run level (`RunConfig.model`) or rely on process-global defaults.
   - Per-agent `model_settings` (temperature, `max_tokens`) are declared on the agent. **Nothing generates
     without a `max_tokens` ceiling** (NFR-2).
-- The model NAME defaults to the brief's `gemini-2.5-flash` in code; the deployed name comes from the
-  `GEMINI_MODEL` env var because the provided key's account can no longer access `gemini-2.5-flash`
-  (provider 404: "no longer available to new users"). This is a documented deviation — see `plan.md`
-  → Open Questions. Changing models must never require touching agent code.
+- Model **selection** is owned by `desk/model_config.py`: an ordered catalog of Gemini
+  OpenAI-compatible models with automatic failover (429 → cooldown 60 s, or ~24 h when the provider
+  reports a per-day quota; 503 → short cooldown; 404 → skipped for the rest of the session) and an
+  optional `MODEL_PRIORITY` env override for the head of the catalog. The user approved this
+  deviation from the brief's literal `gemini-2.5-flash` (the provider retired that model for this
+  key) on 2026-09-23. Gemma-family models are excluded from the catalog — they cannot call tools,
+  and the Desk is tool-required (FR-2). Whatever model is active, the model object is still handed
+  to each `Agent` as `model=` — never per-run, never global. Changing models must never require
+  touching agent code.
 
 ## 2. Secrets
 

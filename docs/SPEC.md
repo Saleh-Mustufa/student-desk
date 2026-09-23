@@ -22,10 +22,11 @@ failure mode gracefully.
 **ASSUMPTIONS I'M MAKING (surfaced per spec-driven-development; correct me and I'll amend the spec):**
 
 1. Windows 10 + Git Bash: the CLI forces UTF-8 output; paths are handled with `pathlib`.
-2. The provided Gemini key can no longer call `gemini-2.5-flash` (provider 404 — "no longer available
-   to new users"). Code keeps the brief's name as the built-in default; `.env` sets
-   `GEMINI_MODEL=gemini-3.6-flash`, the provider-recommended successor. This is the single deviation
-   from the brief's letter, documented in `plan.md` → Open Questions.
+2. RESOLVED by user decision (2026-09-23): the provided Gemini key can no longer call
+   `gemini-2.5-flash` (provider 404 — "no longer available to new users"), and free-tier quotas make
+   one model a single point of failure. Model selection is delegated to `desk/model_config.py`: a
+   priority-ordered catalog with automatic failover (429/503/404 cooldowns), a `MODEL_PRIORITY` env
+   override, and Gemma excluded (no tool calling). The agent-level configuration rule is unchanged.
 3. No OpenAI platform key is available, so the SDK's built-in trace export cannot upload anywhere.
    FR-13 is satisfied by keeping tracing **on** and replacing the default exporter with a durable local
    JSONL trace processor (one trace per conversation, every span nameable).
@@ -55,7 +56,8 @@ Build order: config → courses → profile → desk-core → specialists → op
 
 - Python 3.14, managed exclusively by `uv` (0.12.3).
 - `openai-agents` (OpenAI Agents SDK) — agents, tools, handoffs, guardrails, hooks, custom runner, tracing.
-- `gemini-3.6-flash` (see assumption 2) via `AsyncOpenAI` + `OpenAIChatCompletionsModel` at **agent level**.
+- Gemini via `AsyncOpenAI` + `OpenAIChatCompletionsModel` at **agent level**; which model is active
+  is decided by `desk/model_config.py` (priority catalog + automatic failover — see assumption 2).
 - `chainlit` — browser UI; `.chainlit/config.toml` + custom CSS tracked in git.
 - `pydantic` — `Ticket` output schema; `python-dotenv` — `.env` loading.
 - `pytest` + `pytest-asyncio` — tests (asyncio_mode=auto).
