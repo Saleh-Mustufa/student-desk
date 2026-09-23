@@ -26,7 +26,7 @@ pre-built): ``close_ticket``/tool gating (FR-9), hooks (FR-10).
 
 from __future__ import annotations
 
-from agents import Agent, FunctionTool, ModelSettings, RunContextWrapper
+from agents import Agent, FunctionTool, ModelSettings, RunContextWrapper, StopAtTools
 
 from desk.config import build_model, load_config
 from desk.guardrails import off_topic_guardrail
@@ -38,7 +38,13 @@ from desk.prompt_builder import (
     build_system_prompt,
 )
 from desk.ticket import Ticket
-from desk.tools import get_assignment, get_course_details, list_courses
+from desk.tools import (
+    close_ticket,
+    get_assignment,
+    get_course_details,
+    list_courses,
+    scholarship_benefits,
+)
 
 DESK_AGENT_NAME = AGENT_NAME
 
@@ -205,8 +211,20 @@ def build_desk_agent(model=None) -> Agent[StudentProfile]:
         # before every run, so the prompt is rebuilt from the profile per turn.
         instructions=build_system_prompt,
         # Admin questions (schedules, policies) the Desk answers itself;
-        # FR-6: the Summariser rides along as a tool for long policy answers.
-        tools=[list_courses, get_course_details, build_summarise_answer_tool(model)],
+        # FR-6: the Summariser rides along as a tool for long policy answers;
+        # FR-9a: scholarship_benefits is offered ONLY to scholarship-tier
+        # students (its is_enabled reads the tier from context — absent, not
+        # refused, for regular tier); FR-9b: close_ticket is the stopping rule.
+        tools=[
+            list_courses,
+            get_course_details,
+            scholarship_benefits,
+            build_summarise_answer_tool(model),
+            close_ticket,
+        ],
+        # FR-9b: the run ends the moment close_ticket fires; the tool's raw
+        # output — the Ticket instance — becomes result.final_output (FR-7).
+        tool_use_behavior=StopAtTools(stop_at_tool_names=["close_ticket"]),
         # FR-5: assignment/career questions transfer to the cloned specialists.
         handoffs=[assignments, careers],
         # FR-8: zero-model-call off-topic tripwire, runs before the model

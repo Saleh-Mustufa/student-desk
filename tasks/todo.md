@@ -17,10 +17,10 @@
 - [x] Task 7: Input guardrail (FR-8)
 - [x] Task 8: Specialists via `clone()` + handoffs (FR-5)
 - [x] Task 9: Summariser as a tool (FR-6)
-- [ ] Task 10: Tool gating, `close_ticket`, turn ceiling (FR-9)
+- [x] Task 10: Tool gating, `close_ticket`, turn ceiling (FR-9)
 
 ### Checkpoint 2
-- [ ] off-topic refused free · handoff → specialist → typed Ticket · tool sets differ by tier
+- [x] off-topic refused free · handoff → specialist → typed Ticket · tool sets differ by tier
 
 ## Phase 3 — operations (FR-10, FR-11, FR-13)
 - [ ] Task 11: Timeline hooks, durable (FR-10, NFR-3)

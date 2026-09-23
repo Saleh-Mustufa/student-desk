@@ -91,11 +91,14 @@ def test_build_desk_agent_carries_injected_model_and_exact_wiring():
     assert agent.name == "Student Ops Desk"
     # Dynamic instructions: the two-parameter callable, never a static string.
     assert callable(agent.instructions)
-    # FR-6: the summariser rides along as a tool, not a handoff.
+    # FR-6/FR-9 ride along as tools: the summariser for long answers, the
+    # scholarship tool (tier-gated at run time), close_ticket to stop the run.
     assert [tool.name for tool in agent.tools] == [
         "list_courses",
         "get_course_details",
+        "scholarship_benefits",
         "summarise_answer",
+        "close_ticket",
     ]
     assert agent.model_settings.temperature == 0.2
     assert agent.model_settings.max_tokens == 1000
@@ -399,11 +402,14 @@ async def test_run_passes_dynamic_system_prompt_tools_and_handoffs_to_model():
     assert call.system_instructions.startswith(
         "You are the Student Ops Desk assistant, currently helping Ayesha."
     )
-    # …exactly the two catalogue tools plus the summariser tool are offered…
+    # …the catalogue tools, the summariser and close_ticket are offered as
+    # function tools — and scholarship_benefits is ABSENT (FR-9a): this
+    # profile's tier is regular, so gating removed it before the model call.
     assert [tool.name for tool in call.tools] == [
         "list_courses",
         "get_course_details",
         "summarise_answer",
+        "close_ticket",
     ]
     # …and the two handoff transfer tools are offered separately.
     assert [handoff.tool_name for handoff in call.handoffs] == [

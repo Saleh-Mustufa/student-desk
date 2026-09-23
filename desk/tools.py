@@ -1,4 +1,4 @@
-"""Course tools for the Desk and the specialists (FR-3, NFR-4).
+"""Course tools for the Desk and the specialists (FR-3, NFR-4, FR-9).
 
 Every tool is ``@function_tool``-decorated and takes
 ``RunContextWrapper[StudentProfile]`` as its first parameter — the SDK strips
@@ -6,20 +6,26 @@ that parameter from the generated JSON schema, so no profile field ever leaks
 into tool arguments (FR-3). All tools return strings the model reads and
 **never raise** (NFR-4): unknown-id ``KeyError``s from the repo become exact
 model-actionable failure sentences (plan.md §3) and ``CourseDataError``
-becomes a data-unavailable sentence.
+becomes a data-unavailable sentence. The one deliberate exception to the
+string rule is ``close_ticket`` (FR-9b): it returns a **Ticket instance**
+whose raw output becomes the run's final output under the Desk's
+``StopAtTools`` stopping rule — the student never sees it as tool text.
 
-These three tools are deliberately not profile-specific, so they never read
-``wrapper.context`` — the parameter exists for context-type uniformity with
-the profile-aware tools that follow (e.g. ``scholarship_benefits`` reads
-``wrapper.context.tier``).
+``scholarship_benefits`` reads ``wrapper.context.tier`` through its
+``is_enabled`` callable: for regular-tier students the tool is **absent** from
+the offered tool set — not refused — so the model is never even told it
+exists (FR-9a).
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from agents import RunContextWrapper, function_tool
 
 from desk.courses import CourseDataError, repo
 from desk.profile import StudentProfile
+from desk.ticket import Ticket
 
 # Shared failure sentences (plan.md §3) — returned to the model, never raised.
 _CATALOGUE_EMPTY = (
@@ -30,6 +36,62 @@ _DATA_UNAVAILABLE = (
     "Course data is unavailable right now. Tell the student the desk cannot "
     "reach the catalogue and suggest trying again."
 )
+SCHOLARSHIP_UNPUBLISHED = (
+    "Scholarship details are not published for this course. Say you'll "
+    "escalate to the office."
+)
+
+
+def _scholarship_tier_enabled(
+    wrapper: RunContextWrapper[StudentProfile], agent
+) -> bool:
+    """FR-9a gating: the tool exists only for scholarship-tier students."""
+    return getattr(wrapper.context, "tier", "regular") == "scholarship"
+
+
+@function_tool(is_enabled=_scholarship_tier_enabled)
+async def scholarship_benefits(wrapper: RunContextWrapper[StudentProfile]) -> str:
+    """Return the enrolled course's scholarship benefits, one per line."""
+    try:
+        course = repo.get_course(wrapper.context.course_id)
+    except KeyError:
+        return SCHOLARSHIP_UNPUBLISHED
+    except CourseDataError:
+        return _DATA_UNAVAILABLE
+
+    benefits = course.get("scholarship_benefits", [])
+    if not benefits:
+        return SCHOLARSHIP_UNPUBLISHED
+    return "\n".join(f"- {benefit}" for benefit in benefits)
+
+
+@function_tool
+async def close_ticket(
+    wrapper: RunContextWrapper[StudentProfile],
+    category: Literal["assignment", "career", "admin"],
+    summary: str,
+    next_step: str,
+    resolved: bool,
+    escalate: bool,
+) -> Ticket:
+    """File the structured ticket that closes the student's resolved question.
+
+    Call this once the question is fully answered: category is which queue
+    the question belongs to, summary is one sentence covering what was asked
+    and the answer given, next_step is the single concrete action the student
+    should take, resolved is true when fully answered, escalate is true when
+    a human must act.
+    """
+    # FR-9b: the Ticket INSTANCE (not text) is the tool's return; the Desk's
+    # StopAtTools rule ends the run right here and this object becomes
+    # result.final_output — a typed ticket through the stop path (FR-7).
+    return Ticket(
+        category=category,
+        summary=summary,
+        next_step=next_step,
+        resolved=resolved,
+        escalate=escalate,
+    )
 
 
 @function_tool

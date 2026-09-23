@@ -18,6 +18,15 @@ class ConfigError(Exception):
 
 _GENERIC_USER_MESSAGE = "Something went wrong. Please try again."
 
+# FR-9c: the turn ceiling (max_turns=10) is a designed stopping rule, not a
+# crash. When a run hits it, the student gets this plain-language sentence —
+# no raw exception text, no internals.
+TURN_CEILING_MESSAGE = (
+    "That conversation needed more turns than the desk allows before it "
+    "could reach a resolution. Please rephrase your question or start a new "
+    "one — if it keeps happening, the team will pick it up from here."
+)
+
 
 def log_exception(exc: BaseException) -> None:
     """Record the full traceback on the server-side logger.

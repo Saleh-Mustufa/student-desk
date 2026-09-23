@@ -20,11 +20,16 @@ import logging
 import sys
 from collections.abc import Callable
 
-from agents import Agent, InputGuardrailTripwireTriggered, Runner
+from agents import (
+    Agent,
+    InputGuardrailTripwireTriggered,
+    MaxTurnsExceeded,
+    Runner,
+)
 
 from desk.agents import build_desk_agent
 from desk.config import load_config
-from desk.errors import LOGGER_NAME, ConfigError, log_exception, user_message
+from desk.errors import LOGGER_NAME, TURN_CEILING_MESSAGE, ConfigError, log_exception, user_message
 from desk.guardrails import OFF_TOPIC_REFUSAL
 from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
@@ -94,6 +99,10 @@ async def run_turn(
         # Desk's model ran. Answer courteously and keep the REPL alive — this
         # is a normal turn outcome, not an error for main()'s handler.
         return OFF_TOPIC_REFUSAL
+    except MaxTurnsExceeded:
+        # FR-9c: the deliberate ceiling fired instead of the run circling.
+        # Report it in plain language and keep the REPL alive.
+        return TURN_CEILING_MESSAGE
     history[:] = result.to_input_list()
     return result.final_output
 
