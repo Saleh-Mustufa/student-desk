@@ -33,9 +33,9 @@
 ## Phase 4 — interface and delivery (FR-12)
 - [x] Task 14: Chainlit app core (FR-12)
 - [x] Task 15: Chainlit UX — branding, chips, steps, ticket card (FR-12)
-- [ ] Task 16: Delivery docs + final audit
+- [x] Task 16: Delivery docs + final audit
 
 ### Final definition of done
-- [ ] `git log` proves Phase 0 artifacts before all code (NFR-5)
-- [ ] every FR-1…FR-13 "Done when" demonstrated · every NFR honored
-- [ ] `uv run pytest` fully green · README/VIVA_NOTES/demo complete · clean tree · no secret tracked
+- [x] `git log` proves Phase 0 artifacts before all code (NFR-5)
+- [x] every FR-1…FR-13 "Done when" demonstrated · every NFR honored
+- [x] `uv run pytest` fully green · README/VIVA_NOTES/demo complete · clean tree · no secret tracked
