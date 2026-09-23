@@ -1,0 +1,96 @@
+/* Student Ops Desk — branded stylesheet (T15).
+ *
+ * Saylani brand green (#8dc63f) as the single accent, dark surfaces that
+ * match Chainlit's dark theme (#0e1117 family), and a calmer reading
+ * experience for long answers. Selectors are deliberately conservative so
+ * the sheet degrades gracefully if Chainlit's DOM changes.
+ */
+
+:root {
+  --sod-green: #8dc63f;
+  --sod-green-soft: rgba(141, 198, 63, 0.14);
+  --sod-surface: #0e1117;
+  --sod-surface-raised: #161b22;
+  --sod-ink: #e6edf3;
+  --sod-ink-muted: #9aa7b4;
+}
+
+/* Page canvas: the desk's dark surface, never pure black. */
+html,
+body {
+  background: var(--sod-surface);
+  color: var(--sod-ink);
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* Header: brand the desk like a service window, not a chatbot. */
+header {
+  border-bottom: 1px solid rgba(141, 198, 63, 0.35);
+  background: linear-gradient(180deg, #10151d 0%, var(--sod-surface) 100%);
+}
+header img {
+  border-radius: 6px;
+}
+
+/* Starter chips: invitation cards in brand green. */
+button[data-testid="starter"],
+.chainlit-starters button {
+  border: 1px solid rgba(141, 198, 63, 0.55);
+  background: var(--sod-green-soft);
+  color: var(--sod-ink);
+  border-radius: 12px;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+button[data-testid="starter"]:hover,
+.chainlit-starters button:hover {
+  background: rgba(141, 198, 63, 0.28);
+  transform: translateY(-1px);
+}
+
+/* Messages: softer bubbles, clear authorship. */
+.rounded-2xl,
+[class*="message"] {
+  border-radius: 14px;
+}
+
+/* Steps (tool calls and handoffs): quiet, technical, green-ticked. */
+.step,
+[class*="step"] {
+  border-left: 2px solid rgba(141, 198, 63, 0.5);
+  background: var(--sod-surface-raised);
+  border-radius: 8px;
+}
+
+/* The final ticket card: a structured notice, not plain prose. */
+.markdown-body h3 {
+  color: var(--sod-green);
+  letter-spacing: 0.2px;
+  border-bottom: 1px solid rgba(141, 198, 63, 0.35);
+  padding-bottom: 0.35rem;
+}
+.markdown-body strong {
+  color: var(--sod-ink);
+}
+.markdown-body {
+  color: var(--sod-ink-muted);
+  line-height: 1.6;
+}
+
+/* Composer: green focus ring. */
+textarea:focus,
+input:focus {
+  outline: 2px solid rgba(141, 198, 63, 0.55);
+  outline-offset: 1px;
+}
+
+/* Calmer scrollbars for long conversations. */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3441;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(141, 198, 63, 0.5);
+}

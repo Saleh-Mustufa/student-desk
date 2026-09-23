@@ -31,8 +31,8 @@
 - [x] one question → one timeline + one run record + one trace on disk
 
 ## Phase 4 — interface and delivery (FR-12)
-- [ ] Task 14: Chainlit app core (FR-12)
-- [ ] Task 15: Chainlit UX — branding, chips, steps, ticket card (FR-12)
+- [x] Task 14: Chainlit app core (FR-12)
+- [x] Task 15: Chainlit UX — branding, chips, steps, ticket card (FR-12)
 - [ ] Task 16: Delivery docs + final audit
 
 ### Final definition of done

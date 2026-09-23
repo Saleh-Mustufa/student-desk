@@ -10,9 +10,10 @@ __pycache__/
 
 # uv — keep uv.lock tracked, ignore nothing uv-related
 
-# Chainlit runtime artifacts (track config.toml / custom.css / translations)
+# Chainlit runtime artifacts (track config.toml + public/custom.css; translations regenerate)
 .chainlit/uploads/
 .chainlit/fonts/
+.chainlit/translations/
 .files/
 
 # OS / editor
