@@ -25,10 +25,10 @@
 ## Phase 3 — operations (FR-10, FR-11, FR-13)
 - [x] Task 11: Timeline hooks, durable (FR-10, NFR-3)
 - [x] Task 12: Custom runner (FR-11)
-- [ ] Task 13: Durable local tracing (FR-13)
+- [x] Task 13: Durable local tracing (FR-13)
 
 ### Checkpoint 3
-- [ ] one question → one timeline + one run record + one trace on disk
+- [x] one question → one timeline + one run record + one trace on disk
 
 ## Phase 4 — interface and delivery (FR-12)
 - [ ] Task 14: Chainlit app core (FR-12)

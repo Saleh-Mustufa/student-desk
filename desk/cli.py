@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import logging
 import sys
+import uuid
 from collections.abc import Callable
 
 from agents import (
@@ -25,6 +26,7 @@ from agents import (
     InputGuardrailTripwireTriggered,
     MaxTurnsExceeded,
     Runner,
+    trace,
 )
 
 from desk.agents import build_desk_agent
@@ -36,6 +38,7 @@ from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
 from desk.runner import StampingRunner
 from desk.ticket import Ticket
+from desk.tracing import install_jsonl_tracing
 
 BANNER = "Saylani Student Ops Desk — ask about your Saylani bootcamp, or press Ctrl+C to exit."
 PROMPT_LABEL = "--- Resolved system prompt (rebuilt per turn from the profile; printed before any model call) ---"
@@ -165,6 +168,12 @@ async def main(
     print(preview_prompt(profile))
     print()
 
+    # FR-13: tracing ON, exported to our durable local JSONL sink — the
+    # built-in platform exporter (which would 401 on this key) receives
+    # nothing. One conversation = one trace: the whole session below shares
+    # one named trace id.
+    install_jsonl_tracing()
+
     # FR-11: the custom runner is registered ONCE at startup — every run in
     # this process is wrapped from here on, with no agent file touched.
     from agents.run import set_default_agent_runner
@@ -175,23 +184,30 @@ async def main(
     run_hooks = DeskRunHooks()
 
     try:
-        if args.question is not None:
-            print(await run_turn(agent, profile, [], args.question, run_hooks=run_hooks))
-            return 0
+        with trace(workflow_name=f"student-ops-desk:{uuid.uuid4().hex}"):
+            if args.question is not None:
+                print(
+                    await run_turn(
+                        agent, profile, [], args.question, run_hooks=run_hooks
+                    )
+                )
+                return 0
 
-        print("Interactive session — type a question, or press Ctrl+C to exit.")
-        history: list = []  # one conversation: memory carried across REPL turns
-        while True:
-            try:
-                question = input("You: ")
-            except EOFError:
-                print("\nGoodbye — come back any time.")
-                return 0
-            except KeyboardInterrupt:
-                print("\nGoodbye — come back any time.")
-                return 0
-            answer = await run_turn(agent, profile, history, question, run_hooks=run_hooks)
-            print(f"student> {answer}")
+            print("Interactive session — type a question, or press Ctrl+C to exit.")
+            history: list = []  # one conversation: memory carried across REPL turns
+            while True:
+                try:
+                    question = input("You: ")
+                except EOFError:
+                    print("\nGoodbye — come back any time.")
+                    return 0
+                except KeyboardInterrupt:
+                    print("\nGoodbye — come back any time.")
+                    return 0
+                answer = await run_turn(
+                    agent, profile, history, question, run_hooks=run_hooks
+                )
+                print(f"student> {answer}")
     except Exception as exc:
         log_exception(exc)
         print(user_message(exc))
