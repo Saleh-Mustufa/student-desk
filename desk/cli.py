@@ -34,6 +34,7 @@ from desk.guardrails import OFF_TOPIC_REFUSAL
 from desk.hooks import DeskRunHooks, SpecialistAgentHooks
 from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
+from desk.runner import StampingRunner
 from desk.ticket import Ticket
 
 BANNER = "Saylani Student Ops Desk — ask about your Saylani bootcamp, or press Ctrl+C to exit."
@@ -163,6 +164,12 @@ async def main(
     print(PROMPT_LABEL)
     print(preview_prompt(profile))
     print()
+
+    # FR-11: the custom runner is registered ONCE at startup — every run in
+    # this process is wrapped from here on, with no agent file touched.
+    from agents.run import set_default_agent_runner
+
+    set_default_agent_runner(StampingRunner())
 
     # FR-10: one ordered timeline for the whole session, across every agent.
     run_hooks = DeskRunHooks()
