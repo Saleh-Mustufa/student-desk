@@ -6,9 +6,10 @@ deliberately no process-global OpenAI client and no run-level model override
 through the ``model`` parameter of :func:`build_desk_agent` — the only
 supported seam.
 
-Deliberately NOT built here (later tasks add them; nothing is pre-built):
-handoffs (FR-9), ``output_type`` (FR-7), guardrails (FR-10), AgentHooks
-(FR-10).
+The FR-8 off-topic input guardrail (zero model calls) is built here too, wired
+below from :mod:`desk.guardrails`. Deliberately NOT built here (later tasks
+add them; nothing is pre-built): handoffs (FR-9), ``output_type`` (FR-7),
+AgentHooks (FR-10).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 from agents import Agent, ModelSettings
 
 from desk.config import build_model, load_config
+from desk.guardrails import off_topic_guardrail
 from desk.profile import StudentProfile
 from desk.prompt_builder import AGENT_NAME, build_system_prompt
 from desk.tools import get_course_details, list_courses
@@ -44,6 +46,9 @@ def build_desk_agent(model=None) -> Agent[StudentProfile]:
         instructions=build_system_prompt,
         # Assignment lookup joins with the specialist agent in a later task.
         tools=[list_courses, get_course_details],
+        # FR-8: zero-model-call off-topic tripwire, runs before the model
+        # (run_in_parallel=False, see desk/guardrails.py).
+        input_guardrails=[off_topic_guardrail],
         model=model,
         model_settings=DESK_MODEL_SETTINGS,
     )

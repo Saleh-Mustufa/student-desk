@@ -20,11 +20,12 @@ import logging
 import sys
 from collections.abc import Callable
 
-from agents import Agent, Runner
+from agents import Agent, InputGuardrailTripwireTriggered, Runner
 
 from desk.agents import build_desk_agent
 from desk.config import load_config
 from desk.errors import LOGGER_NAME, ConfigError, log_exception, user_message
+from desk.guardrails import OFF_TOPIC_REFUSAL
 from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
 
@@ -83,7 +84,13 @@ async def run_turn(
     next turn's memory.
     """
     history.append({"role": "user", "content": question})
-    result = await Runner.run(agent, history, context=profile, max_turns=MAX_TURNS)
+    try:
+        result = await Runner.run(agent, history, context=profile, max_turns=MAX_TURNS)
+    except InputGuardrailTripwireTriggered:
+        # FR-8: the zero-model-call off-topic guardrail tripped before the
+        # Desk's model ran. Answer courteously and keep the REPL alive — this
+        # is a normal turn outcome, not an error for main()'s handler.
+        return OFF_TOPIC_REFUSAL
     history[:] = result.to_input_list()
     return result.final_output
 
