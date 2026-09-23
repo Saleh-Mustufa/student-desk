@@ -1,0 +1,17 @@
+[project]
+name = "student-ops-desk"
+version = "0.1.0"
+description = "Saylani Student Ops Desk — multi-agent front desk for bootcamp students (OpenAI Agents SDK + Gemini + Chainlit)"
+requires-python = ">=3.14"
+dependencies = [
+    "chainlit>=2.12.0",
+    "openai-agents>=0.22.3",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
