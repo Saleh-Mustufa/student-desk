@@ -12,11 +12,12 @@ import sys
 from pathlib import Path
 
 import pytest
-from agents import OpenAIChatCompletionsModel, set_tracing_disabled
+from agents import set_tracing_disabled
 
 from desk.agents import build_desk_agent
 from desk.cli import PROMPT_LABEL, main, parse_args, run_turn
 from desk.errors import LOGGER_NAME
+from desk.model_config import FailoverModel, resolve_catalog
 from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
 from desk.tools import get_course_details, list_courses
@@ -75,8 +76,10 @@ def test_build_desk_agent_without_model_builds_gemini_model_from_config(
 
     agent = build_desk_agent()
 
-    assert isinstance(agent.model, OpenAIChatCompletionsModel)
-    assert agent.model.model == "gemini-2.5-flash"
+    # Model selection is the user-approved failover catalog (desk/model_config.py):
+    # the agent receives the wrapper at agent level; its head is the catalog head.
+    assert isinstance(agent.model, FailoverModel)
+    assert agent.model.active_model_name == resolve_catalog({})[0]
 
 
 # --- FR-1: run_turn — scripted end-to-end turn through the SDK runner --------

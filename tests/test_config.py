@@ -13,6 +13,7 @@ from openai import AsyncOpenAI
 
 from desk.config import DeskConfig, build_model, load_config
 from desk.errors import ConfigError
+from desk.model_config import FailoverModel, resolve_catalog
 
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 DEFAULT_MODEL = "gemini-2.5-flash"
@@ -81,18 +82,23 @@ def test_blank_api_key_raises_config_error():
 # --- FR-1: build_model wires the agent-level model, never a global ---------
 
 
-def test_build_model_returns_chat_completions_model_on_async_openai():
+def test_build_model_returns_failover_wrapper_on_shared_async_openai(monkeypatch):
+    monkeypatch.delenv("GEMINI_MODEL", raising=False)
     config = DeskConfig(
-        model_name="gemini-2.5-flash",
+        model_name="gemini-3.6-flash",
         base_url=DEFAULT_BASE_URL,
         api_key="test-key-123",
     )
 
     model = build_model(config)
 
-    assert isinstance(model, OpenAIChatCompletionsModel)
-    assert model.model == "gemini-2.5-flash"
-    client = model._client
+    # The wrapper is what every agent receives at agent level; the catalog head is active.
+    assert isinstance(model, FailoverModel)
+    head_name = resolve_catalog({})[0]
+    head = model._models[head_name]
+    assert isinstance(head, OpenAIChatCompletionsModel)
+    assert head.model == head_name
+    client = head._client
     assert isinstance(client, AsyncOpenAI)
     assert str(client.base_url) == DEFAULT_BASE_URL
     assert client.api_key == "test-key-123"

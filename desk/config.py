@@ -3,7 +3,9 @@
 Loads settings from environment variables (plus a project-root .env when no
 mapping is passed), validates the Gemini API key, and builds the agent-level
 model object. The model is declared per agent — there is deliberately no
-process-global OpenAI client here.
+process-global OpenAI client here. WHICH Gemini model is active is decided by
+the failover catalog in ``desk/model_config.py`` (user-approved amendment,
+2026-09-23); ``GEMINI_MODEL`` pins the head of that catalog.
 """
 
 from __future__ import annotations
@@ -13,11 +15,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
-
-from agents import OpenAIChatCompletionsModel
 
 from desk.errors import ConfigError
+from desk.model_config import FailoverModel, build_model as _build_failover_model
 
 DEFAULT_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 DEFAULT_MODEL_NAME = "gemini-2.5-flash"
@@ -56,7 +56,10 @@ def load_config(env: Mapping[str, str] | None = None) -> DeskConfig:
     )
 
 
-def build_model(config: DeskConfig) -> OpenAIChatCompletionsModel:
-    """Wire the Gemini-backed chat-completions model declared on each Agent."""
-    client = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
-    return OpenAIChatCompletionsModel(model=config.model_name, openai_client=client)
+def build_model(config: DeskConfig) -> FailoverModel:
+    """Wire the agent-level model object declared on each Agent.
+
+    Delegates to ``desk.model_config`` — the failover catalog decides which Gemini
+    model answers; ``config.model_name`` (from ``GEMINI_MODEL``) pins its head.
+    """
+    return _build_failover_model(config)
