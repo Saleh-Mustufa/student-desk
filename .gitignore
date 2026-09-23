@@ -1,0 +1,20 @@
+# Secrets — NEVER commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# uv — keep uv.lock tracked, ignore nothing uv-related
+
+# Chainlit runtime artifacts (track config.toml / custom.css / translations)
+.chainlit/uploads/
+.chainlit/fonts/
+.files/
+
+# OS / editor
+.DS_Store
+Thumbs.db
