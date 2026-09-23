@@ -23,7 +23,7 @@
 - [x] off-topic refused free · handoff → specialist → typed Ticket · tool sets differ by tier
 
 ## Phase 3 — operations (FR-10, FR-11, FR-13)
-- [ ] Task 11: Timeline hooks, durable (FR-10, NFR-3)
+- [x] Task 11: Timeline hooks, durable (FR-10, NFR-3)
 - [ ] Task 12: Custom runner (FR-11)
 - [ ] Task 13: Durable local tracing (FR-13)
 

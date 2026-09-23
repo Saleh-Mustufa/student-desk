@@ -26,7 +26,14 @@ pre-built): ``close_ticket``/tool gating (FR-9), hooks (FR-10).
 
 from __future__ import annotations
 
-from agents import Agent, FunctionTool, ModelSettings, RunContextWrapper, StopAtTools
+from agents import (
+    Agent,
+    AgentHooks,
+    FunctionTool,
+    ModelSettings,
+    RunContextWrapper,
+    StopAtTools,
+)
 
 from desk.config import build_model, load_config
 from desk.guardrails import off_topic_guardrail
@@ -168,12 +175,18 @@ def build_base_specialist(model=None) -> Agent[StudentProfile]:
     )
 
 
-def build_specialists(model=None) -> tuple[Agent[StudentProfile], Agent[StudentProfile]]:
+def build_specialists(
+    model=None, assignments_hooks: AgentHooks | None = None
+) -> tuple[Agent[StudentProfile], Agent[StudentProfile]]:
     """Clone the two specialists from one base (FR-5).
 
     Only ``name``, ``instructions`` and ``model_settings`` differ — exactly
     the fields the brief allows. Neither clone restates ``model=``; each
     receives a FRESH tool list so specialists never grow each other's tools.
+
+    ``assignments_hooks`` (FR-10) attaches agent-level hooks to EXACTLY ONE
+    specialist — the assignments close-watch; the careers specialist never
+    carries hooks, so agent-level events belong to their one agent only.
     """
     base = build_base_specialist(model)
 
@@ -182,6 +195,7 @@ def build_specialists(model=None) -> tuple[Agent[StudentProfile], Agent[StudentP
         instructions=ASSIGNMENTS_INSTRUCTIONS,
         model_settings=ASSIGNMENTS_MODEL_SETTINGS,
         tools=[list_courses, get_course_details, get_assignment],
+        hooks=assignments_hooks,
     )
     careers = base.clone(
         name=CAREERS_SPECIALIST_NAME,
@@ -192,18 +206,23 @@ def build_specialists(model=None) -> tuple[Agent[StudentProfile], Agent[StudentP
     return assignments, careers
 
 
-def build_desk_agent(model=None) -> Agent[StudentProfile]:
+def build_desk_agent(
+    model=None, assignments_hooks: AgentHooks | None = None
+) -> Agent[StudentProfile]:
     """Assemble the Desk agent, wiring ``model`` at the agent level.
 
     ``model`` defaults to the Gemini-backed chat-completions model built from
     configuration (:func:`desk.config.build_model(load_config())`). Passing a
     model object is how tests stay network-free; the specialists share the
     same model object so one scripted instance drives the whole handoff.
+
+    ``assignments_hooks`` (FR-10) passes through to the assignments clone, so
+    the caller decides which single specialist carries the close-watch.
     """
     if model is None:
         model = build_model(load_config())
 
-    assignments, careers = build_specialists(model)
+    assignments, careers = build_specialists(model, assignments_hooks=assignments_hooks)
 
     return Agent[StudentProfile](
         name=DESK_AGENT_NAME,

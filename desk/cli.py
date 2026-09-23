@@ -31,6 +31,7 @@ from desk.agents import build_desk_agent
 from desk.config import load_config
 from desk.errors import LOGGER_NAME, TURN_CEILING_MESSAGE, ConfigError, log_exception, user_message
 from desk.guardrails import OFF_TOPIC_REFUSAL
+from desk.hooks import DeskRunHooks, SpecialistAgentHooks
 from desk.profile import StudentProfile
 from desk.prompt_builder import preview_prompt
 from desk.ticket import Ticket
@@ -42,6 +43,11 @@ PROMPT_LABEL = "--- Resolved system prompt (rebuilt per turn from the profile; p
 # round-trip + ticket turns; 10 turns is the explicit ceiling until the full
 # handoff graph lands.
 MAX_TURNS = 10
+
+
+def _default_agent_factory() -> Agent[StudentProfile]:
+    """Build the Desk with the FR-10 close-watch on exactly one specialist."""
+    return build_desk_agent(assignments_hooks=SpecialistAgentHooks())
 
 
 def _force_utf8_stdout() -> None:
@@ -81,7 +87,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 async def run_turn(
-    agent: Agent[StudentProfile], profile: StudentProfile, history: list, question: str
+    agent: Agent[StudentProfile],
+    profile: StudentProfile,
+    history: list,
+    question: str,
+    run_hooks: DeskRunHooks | None = None,
 ) -> Ticket | str:
     """Run one Desk turn: append the question, run, keep the grown conversation.
 
@@ -89,11 +99,14 @@ async def run_turn(
     always holds the full user/assistant conversation exactly once — the
     next turn's memory. With ``output_type=Ticket`` on the Desk (FR-7) the
     answer is a typed ``Ticket``; the off-topic refusal (FR-8) stays a
-    courteous sentence.
+    courteous sentence. ``run_hooks`` (FR-10) records the run-level audit
+    timeline across every agent.
     """
     history.append({"role": "user", "content": question})
     try:
-        result = await Runner.run(agent, history, context=profile, max_turns=MAX_TURNS)
+        result = await Runner.run(
+            agent, history, context=profile, max_turns=MAX_TURNS, hooks=run_hooks
+        )
     except InputGuardrailTripwireTriggered:
         # FR-8: the zero-model-call off-topic guardrail tripped before the
         # Desk's model ran. Answer courteously and keep the REPL alive — this
@@ -107,8 +120,15 @@ async def run_turn(
     return result.final_output
 
 
-async def main(argv: list[str] | None = None, agent_factory=build_desk_agent) -> int:
-    """One student session. Returns the process exit code."""
+async def main(
+    argv: list[str] | None = None, agent_factory=_default_agent_factory
+) -> int:
+    """One student session. Returns the process exit code.
+
+    The default agent factory attaches the FR-10 agent-level close-watch to
+    exactly one specialist; this session also owns one FR-10 run-level
+    timeline that every turn appends to.
+    """
     _force_utf8_stdout()
 
     # Tracebacks must never reach the console: with no handler configured,
@@ -144,9 +164,12 @@ async def main(argv: list[str] | None = None, agent_factory=build_desk_agent) ->
     print(preview_prompt(profile))
     print()
 
+    # FR-10: one ordered timeline for the whole session, across every agent.
+    run_hooks = DeskRunHooks()
+
     try:
         if args.question is not None:
-            print(await run_turn(agent, profile, [], args.question))
+            print(await run_turn(agent, profile, [], args.question, run_hooks=run_hooks))
             return 0
 
         print("Interactive session — type a question, or press Ctrl+C to exit.")
@@ -160,7 +183,8 @@ async def main(argv: list[str] | None = None, agent_factory=build_desk_agent) ->
             except KeyboardInterrupt:
                 print("\nGoodbye — come back any time.")
                 return 0
-            print(f"student> {await run_turn(agent, profile, history, question)}")
+            answer = await run_turn(agent, profile, history, question, run_hooks=run_hooks)
+            print(f"student> {answer}")
     except Exception as exc:
         log_exception(exc)
         print(user_message(exc))
