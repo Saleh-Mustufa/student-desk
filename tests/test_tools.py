@@ -219,3 +219,41 @@ def test_no_tool_schema_leaks_the_wrapper_or_profile_fields(tool):
     assert leaked_profile_fields & PROFILE_FIELDS == set()
     assert "wrapper" not in _properties(tool)
     assert "wrapper" not in json.dumps(tool.params_json_schema)
+
+
+# --- id lookups are case/whitespace-insensitive (live-demo bug: "A3" vs "a3") -
+
+
+async def test_tool_lookups_are_case_and_whitespace_insensitive():
+    """A student asks about "A3"; the catalogue stores "a3". The lookup must
+    still hit — a case-sensitive miss sent the live model into retry loops."""
+    assignment = repo.get_assignment(AGENTIC, "a3")
+
+    upper = await invoke(
+        get_assignment, {"course_id": AGENTIC.upper(), "assignment_id": "A3"}
+    )
+    padded = await invoke(
+        get_assignment,
+        {"course_id": f" {AGENTIC} ", "assignment_id": " a3 "},
+    )
+    details = await invoke(
+        get_course_details, {"course_id": "  AGENTIC-AI-W4 ".replace("AGENTIC", AGENTIC.split("-")[0])}
+    )
+
+    assert upper == f"{assignment['title']} · due {assignment['due']}"
+    assert padded == f"{assignment['title']} · due {assignment['due']}"
+    assert "Assignment lookup failed" not in details
+    assert "Course lookup failed" not in details
+
+
+async def test_unknown_id_failure_sentences_still_echo_the_raw_input():
+    """Normalization is for lookup only: the failure sentence reports the id
+    exactly as the caller wrote it (transparent, not silently rewritten)."""
+    result = await invoke(
+        get_assignment, {"course_id": AGENTIC, "assignment_id": "Z9"}
+    )
+    assert result == (
+        "Assignment lookup failed: unknown id 'Z9' in course "
+        f"'{AGENTIC}'. Tell the student it isn't in the catalogue — do "
+        "not invent an id."
+    )

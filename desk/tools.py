@@ -42,6 +42,17 @@ SCHOLARSHIP_UNPUBLISHED = (
 )
 
 
+def _lookup_id(raw: str) -> str:
+    """Normalise a catalogue id for lookup: trimmed and case-insensitive.
+
+    Students (and therefore models) ask about "A3" while the catalogue stores
+    "a3" — an exact, case-sensitive match would fail and send the model into
+    retry loops. The failure sentences still echo the id as the caller wrote
+    it, so an unknown id is reported transparently.
+    """
+    return raw.strip().casefold()
+
+
 def _scholarship_tier_enabled(
     wrapper: RunContextWrapper[StudentProfile], agent
 ) -> bool:
@@ -53,7 +64,7 @@ def _scholarship_tier_enabled(
 async def scholarship_benefits(wrapper: RunContextWrapper[StudentProfile]) -> str:
     """Return the enrolled course's scholarship benefits, one per line."""
     try:
-        course = repo.get_course(wrapper.context.course_id)
+        course = repo.get_course(_lookup_id(wrapper.context.course_id))
     except KeyError:
         return SCHOLARSHIP_UNPUBLISHED
     except CourseDataError:
@@ -115,7 +126,7 @@ async def get_course_details(
 ) -> str:
     """Return one course's title, weekly schedule, and every policy."""
     try:
-        course = repo.get_course(course_id)
+        course = repo.get_course(_lookup_id(course_id))
     except KeyError:
         return (
             f"Course lookup failed: unknown id '{course_id}'. Tell the student "
@@ -140,7 +151,9 @@ async def get_assignment(
 ) -> str:
     """Return one assignment's title, due date, and any status or policy notes."""
     try:
-        assignment = repo.get_assignment(course_id, assignment_id)
+        assignment = repo.get_assignment(
+            _lookup_id(course_id), _lookup_id(assignment_id)
+        )
     except KeyError:
         return (
             f"Assignment lookup failed: unknown id '{assignment_id}' in course "
