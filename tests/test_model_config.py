@@ -17,6 +17,12 @@ from openai import InternalServerError, NotFoundError, RateLimitError
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+import json
+
+from agents import Usage
+from agents.items import ModelResponse
+from openai.types.responses import ResponseOutputMessage, ResponseOutputText
+
 from desk.config import DeskConfig  # noqa: E402
 from desk.model_config import (  # noqa: E402
     MODEL_CATALOG,
@@ -84,10 +90,15 @@ class StubInner:
 
 
 class FakeResponse:
-    """A ModelResponse stand-in so tests can tell which inner model answered."""
+    """A ModelResponse stand-in so tests can tell which inner model answered.
+
+    Carries an empty ``output`` list — the FailoverModel's structured-output
+    sanitizer reads ``response.output`` whenever an output schema is declared.
+    """
 
     def __init__(self, marker: str) -> None:
         self.marker = marker
+        self.output: list = []
 
 
 def _resp(status: int) -> httpx.Response:
@@ -295,3 +306,65 @@ def test_build_model_returns_failover_wrapping_chat_completions_models():
     head = model._models[resolve_catalog({})[0]]
     assert isinstance(head, OpenAIChatCompletionsModel)
     assert head.model == resolve_catalog({})[0]
+
+
+# --------------------------------------------- structured-output sanitization
+
+
+def _ticket_response(text: str) -> ModelResponse:
+    """A ModelResponse whose single output message carries one text part."""
+    message = ResponseOutputMessage(
+        id="msg-scripted-1",
+        status="completed",
+        role="assistant",
+        content=[ResponseOutputText(text=text, type="output_text", annotations=[])],
+        type="message",
+    )
+    return ModelResponse(output=[message], usage=Usage(), response_id="resp-scripted-1")
+
+
+async def test_sanitizer_recovers_fenced_json_when_output_schema_declared():
+    fenced = '```json\n{"category": "assignment", "resolved": true}\n```'
+    model, _ = make_failover({"m-a": [_ticket_response(fenced)]})
+
+    response = await model.get_response(None, "hi", None, [], "schema-sentinel", [], None)
+
+    assert json.loads(response.output[0].content[0].text) == {
+        "category": "assignment",
+        "resolved": True,
+    }
+
+
+async def test_sanitizer_extracts_a_json_object_prefixed_by_prose():
+    wrapped = 'Here is the ticket: {"category": "career", "resolved": false}'
+    model, _ = make_failover({"m-a": [_ticket_response(wrapped)]})
+
+    response = await model.get_response(None, "hi", None, [], "schema-sentinel", [], None)
+
+    assert json.loads(response.output[0].content[0].text) == {
+        "category": "career",
+        "resolved": False,
+    }
+
+
+async def test_sanitizer_leaves_bare_json_and_prose_untouched():
+    bare = '{"category": "admin", "resolved": false}'
+    prose = "A3 is due Friday — sorry, no JSON object in this reply."
+    model, _ = make_failover(
+        {"m-a": [_ticket_response(bare), _ticket_response(prose)]}
+    )
+
+    first = await model.get_response(None, "hi", None, [], "schema-sentinel", [], None)
+    second = await model.get_response(None, "hi", None, [], "schema-sentinel", [], None)
+
+    assert first.output[0].content[0].text == bare
+    assert second.output[0].content[0].text == prose
+
+
+async def test_sanitizer_never_touches_plain_text_conversations():
+    fenced = '```json\n{"a": 1}\n```'
+    model, _ = make_failover({"m-a": [_ticket_response(fenced)]})
+
+    response = await model.get_response(None, "hi", None, [], None, [], None)
+
+    assert "```json" in response.output[0].content[0].text

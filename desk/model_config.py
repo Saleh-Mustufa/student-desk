@@ -6,7 +6,11 @@ single model a single point of failure. This module owns WHICH model answers:
 * ``MODEL_CATALOG`` — the priority-ordered list of Gemini OpenAI-compatible models.
 * ``FailoverModel`` — an SDK ``Model`` wrapper that tries catalog entries in order and cools an
   entry down on 429 (60 s, or ~24 h when the provider reports a per-day quota), 503 (30 s) and
-  404 (rest of the session), retrying the call on the next healthy entry.
+  404 (rest of the session), retrying the call on the next healthy entry. When an output schema
+  is declared (``output_type=Ticket``, FR-7), it also sanitises the final message: Gemini
+  intermittently wraps the structured JSON in markdown fences (or prefixes it with prose),
+  which the SDK's parser rejects with ``ModelBehaviorError``. The payload is extracted
+  centrally here so no agent ever changes for it.
 * ``build_model`` — builds the wrapper around one shared ``AsyncOpenAI`` client; the wrapper is
   the object every agent receives as ``model=`` (agent-level configuration; never per-run,
   never global — the forbidden process-global client call appears nowhere in this repo).
@@ -17,9 +21,12 @@ Desk is tool-required (FR-2).
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import time
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 
 from openai import AsyncOpenAI, InternalServerError, NotFoundError, RateLimitError
 
@@ -72,11 +79,93 @@ def cooldown_for(exc: BaseException) -> float:
     return _MINUTE
 
 
+_FENCE_RE = re.compile(r"```(?:json)?\s*(.+?)\s*```", re.DOTALL)
+_BARE_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _extract_json_payload(text: str) -> str:
+    """Pull the JSON payload out of a fenced or prose-wrapped model reply.
+
+    Gemini's OpenAI-compatible endpoint intermittently wraps structured output
+    in ```json fences or prefixes it with a sentence; the SDK's final-output
+    parser needs the bare JSON. A reply that is already bare JSON (or carries
+    no JSON object at all) comes back unchanged.
+    """
+    stripped = text.strip()
+    if stripped.startswith("{") or stripped.startswith("["):
+        return stripped
+    fenced = _FENCE_RE.search(stripped)
+    if fenced:
+        return fenced.group(1)
+    bare = _BARE_OBJECT_RE.search(stripped)
+    if bare:
+        return bare.group(0)
+    return stripped
+
+
+def _sanitize_structured_output(response, output_schema) -> object:
+    """Rewrite fenced/annotated final messages when a schema is declared.
+
+    Only fires when ``output_schema`` is set (the ``output_type=Ticket`` runs);
+    plain-text conversations are forwarded untouched. Messages whose text
+    already parses as JSON are returned unchanged.
+    """
+    if output_schema is None:
+        return response
+
+    sanitized = False
+    new_output = []
+    for item in response.output:
+        content = getattr(item, "content", None)
+        if not isinstance(content, list) or not content:
+            new_output.append(item)
+            continue
+        combined = "".join(
+            part.text for part in content if isinstance(getattr(part, "text", None), str)
+        )
+        if not combined:
+            new_output.append(item)
+            continue
+        extracted = _extract_json_payload(combined)
+        try:
+            json.loads(extracted)
+        except ValueError:
+            new_output.append(item)  # no JSON to recover; leave the reply as-is
+            continue
+        if extracted == combined:
+            new_output.append(item)
+            continue
+        sanitized = True
+        replaced_first = False
+        new_content = []
+        for part in content:
+            if isinstance(getattr(part, "text", None), str):
+                # The extracted payload goes into the first text part; any
+                # further text parts are blanked so the combined text of the
+                # message stays exactly the extracted JSON.
+                new_content.append(
+                    part.model_copy(update={"text": "" if replaced_first else extracted})
+                )
+                replaced_first = True
+            else:
+                new_content.append(part)
+        new_output.append(item.model_copy(update={"content": new_content}))
+
+    if not sanitized:
+        return response
+    # ModelResponse is a dataclass (agents.items), unlike the pydantic output
+    # items inside it — replace() is its copy-with-updates equivalent.
+    return replace(response, output=new_output)
+
+
 class FailoverModel(Model):
     """Tries catalog models in priority order, cooling down entries that fail.
 
-    The wrapper never inspects or changes the conversation: every argument is forwarded
-    unchanged to whichever inner model answers.
+    Conversations are forwarded unchanged except for one deliberate exception:
+    when an output schema is declared, the final message's structured JSON is
+    recovered from markdown fences / prose prefixes (see
+    :func:`_sanitize_structured_output`) — a provider formatting quirk, fixed
+    centrally so no agent changes for it.
     """
 
     def __init__(
@@ -136,7 +225,7 @@ class FailoverModel(Model):
         last_error: BaseException | None = None
         for name in self._healthy_names():
             try:
-                return await self._models[name].get_response(
+                response = await self._models[name].get_response(
                     system_instructions,
                     input,
                     model_settings,
@@ -149,6 +238,7 @@ class FailoverModel(Model):
                     prompt=prompt,
                     **kwargs,
                 )
+                return _sanitize_structured_output(response, output_schema)
             except (NotFoundError, RateLimitError, InternalServerError) as exc:
                 self._mark_failure(name, exc)
                 last_error = exc
