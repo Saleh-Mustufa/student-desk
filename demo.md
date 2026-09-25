@@ -16,7 +16,7 @@ requirement it demonstrates.
 ## 0. One-time sanity (no quota spent)
 
 ```bash
-uv run pytest          # 164 passed, network-free
+uv run pytest          # 170 passed, network-free
 ```
 
 ## 1. Terminal — the clean conversation (FR-1…FR-5, FR-7, FR-8)

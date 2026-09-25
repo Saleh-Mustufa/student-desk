@@ -13,7 +13,7 @@ Open `desk/tools.py:113` (`get_course_details`) — every tool takes
 (`desk/tools.py:52` for `list_courses`). The Agents SDK strips the
 `RunContextWrapper` parameter from the generated JSON schema *by design*:
 the context is a **local Python object injected at `Runner.run(..., context=)`
-time** (`desk/app_state.py:120` passes `context=self.profile`), not model
+time** (`desk/app_state.py:131` passes `context=self.profile`), not model
 input. So the schema the model sees has only `course_id` — there is no
 parameter it could fill with a student's name, roll number, or tier, and
 nothing it could invent. The profile reaches the model **only** through the
