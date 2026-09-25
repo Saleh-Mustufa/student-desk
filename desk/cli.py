@@ -30,6 +30,7 @@ from agents import (
 )
 
 from desk.agents import build_desk_agent
+from desk.app_state import ticket_card
 from desk.config import load_config
 from desk.errors import LOGGER_NAME, TURN_CEILING_MESSAGE, ConfigError, log_exception, user_message
 from desk.guardrails import OFF_TOPIC_REFUSAL
@@ -47,6 +48,11 @@ PROMPT_LABEL = "--- Resolved system prompt (rebuilt per turn from the profile; p
 # round-trip + ticket turns; 10 turns is the explicit ceiling until the full
 # handoff graph lands.
 MAX_TURNS = 10
+
+
+def _render(answer: Ticket | str) -> str:
+    """Typed Tickets render as the structured card; sentences print as-is."""
+    return ticket_card(answer) if isinstance(answer, Ticket) else answer
 
 
 def _default_agent_factory() -> Agent[StudentProfile]:
@@ -187,8 +193,10 @@ async def main(
         with trace(workflow_name=f"student-ops-desk:{uuid.uuid4().hex}"):
             if args.question is not None:
                 print(
-                    await run_turn(
-                        agent, profile, [], args.question, run_hooks=run_hooks
+                    _render(
+                        await run_turn(
+                            agent, profile, [], args.question, run_hooks=run_hooks
+                        )
                     )
                 )
                 return 0
@@ -207,7 +215,7 @@ async def main(
                 answer = await run_turn(
                     agent, profile, history, question, run_hooks=run_hooks
                 )
-                print(f"student> {answer}")
+                print(f"student> {_render(answer)}")
     except Exception as exc:
         log_exception(exc)
         print(user_message(exc))

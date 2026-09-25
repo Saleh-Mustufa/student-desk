@@ -90,7 +90,11 @@ def _compose(profile: StudentProfile, course_title: str | None, agent_name: str)
         "- Administrative questions (schedules, enrolment, general "
         "policies): answer yourself from the catalogue tools.\n"
         "- Once the student's question is resolved, end the conversation by "
-        "calling close_ticket with the structured ticket."
+        "calling close_ticket with the structured ticket. If you answer "
+        "directly without calling close_ticket, your final message must "
+        "instead be a single raw JSON object with the fields category "
+        "(assignment, career or admin), summary, next_step, resolved and "
+        "escalate — no markdown fences, no commentary around it."
     )
     return "\n\n".join([greeting, course_line, tone, scope])
 
